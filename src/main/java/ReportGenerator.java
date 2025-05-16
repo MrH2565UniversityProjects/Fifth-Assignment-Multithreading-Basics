@@ -1,4 +1,8 @@
+import java.io.BufferedReader;
+import java.io.FileReader;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
 public class ReportGenerator {
     static class TaskRunnable implements Runnable {
@@ -6,7 +10,6 @@ public class ReportGenerator {
         private double totalCost;
         private int totalAmount;
         private int totalDiscountSum;
-        private int totalLines;
         private Product mostExpensiveProduct;
         private double highestCostAfterDiscount;
 
@@ -15,29 +18,55 @@ public class ReportGenerator {
             this.totalCost = 0;
             this.totalAmount = 0;
             this.totalDiscountSum = 0;
-            this.totalLines = 0;
             this.highestCostAfterDiscount = 0;
             this.mostExpensiveProduct = null;
         }
 
         @Override
         public void run() {
-            //TODO:
-            // - Read all lines from the input file (path)
-            // - For each line, parse product ID, amount, and discount
-            // - The format of the files are like this:
-            //      [productId],[amount],[discountAmount]
-            // - Find the corresponding product from catalog
-            // - Calculate discounted cost and update total stats (totalAmount, totalCost, totalDiscountSum, totalLines)
-            // - Track the most expensive purchase after discount
+            try (BufferedReader reader = new BufferedReader(new FileReader(path))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    String[] parts = line.split(",");
+                    int Id = Integer.parseInt(parts[0]);
+                    Product product = findProductById(Id);
+                    if (product == null) continue;
+                    int amount = Integer.parseInt(parts[1]);
+                    int discount = Integer.parseInt(parts[2]);
+                    double price = product.getPrice();
+                    double discountedUnitPrice = price * (1 - discount / 100.0);
+                    double totalPurchaseCost = discountedUnitPrice * amount;
+                    totalAmount += amount;
+                    totalDiscountSum += (int) ((price * discount / 100.0) * amount);
+                    totalCost += totalPurchaseCost;
+                    if (totalPurchaseCost > highestCostAfterDiscount) {
+                        highestCostAfterDiscount = totalPurchaseCost;
+                        mostExpensiveProduct = product;
+                    }
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+
+        private Product findProductById(int id) {
+                if (id < 10) {
+                    return productCatalog[id - 1];
+                }
+            return null;
         }
 
         public void makeReport() {
-            // TODO:
-            // - Print the filename
-            // - Print total cost and total items bought
-            // - Calculate and print average discount
-            // - Display info about the most expensive purchase after discount
+            System.out.println("###### Report for " + path + " ######");
+            System.out.printf("Total Cost: $%.2f\n", totalCost);
+            System.out.println("Total Items Bought: " + totalAmount);
+            double avgDiscount = (totalAmount == 0) ? 0 : (double) totalDiscountSum / totalAmount;
+            System.out.printf("Average Discount per item: $%.2f\n", avgDiscount);
+            if (mostExpensiveProduct != null) {
+                System.out.printf("Most expensive (per unit, after discount): %s - $%.2f\n",
+                        mostExpensiveProduct.getProductName(), highestCostAfterDiscount);
+            }
+            System.out.println("\n\n");
         }
     }
 
@@ -65,25 +94,52 @@ public class ReportGenerator {
         }
     }
     private static final String[] ORDER_FILES = {
-            // TODO: Define the paths to the order detail text files in the resources folder
+            "src/main/resources/2021_order_details.txt",
+            "src/main/resources/2022_order_details.txt",
+            "src/main/resources/2023_order_details.txt",
+            "src/main/resources/2024_order_details.txt"
     };
 
     static Product[] productCatalog = new Product[10];
 
     public static void loadProducts() throws IOException {
-        // TODO:
-        // - Read lines from Products.txt
-        // - For each line, parse product ID, name, and price
-        // - The format of the file is like this:
-        //      [productId],[name],[price]
-        // - Store Product objects in the productCatalog array
+        String filename = "src/main/resources/Products.txt";
+        try (BufferedReader br = new BufferedReader(new FileReader(filename))) {
+            String line;
+            int counter = 0;
+            while ((line = br.readLine()) != null) {
+                if (!line.trim().isEmpty()) {
+                    String[] cols = line.split(",");
+                    productCatalog[counter] = new Product(Integer.parseInt(cols[0]),cols[1],Double.parseDouble(cols[2]));
+                    counter++;
+                }
+            }
+        } catch (IOException e) {
+            System.out.println("Error reading file: " + filename);
+            e.printStackTrace();
+        }
     }
 
     public static void main(String[] args) throws InterruptedException {
-        // TODO:
-        // - Create one TaskRunnable and Thread for each order file
-        // - Start all threads
-        // - Wait for all threads to finish
-        // - After all threads are done, call makeReport() on each TaskRunnable
+        try
+        {
+            loadProducts();
+        }
+        catch (IOException e)
+        {
+            System.out.println("Unable to load Products.txt: " + e.getMessage());
+            return;
+        }
+        List<TaskRunnable> workers = new ArrayList<>();
+        List<Thread>       threads = new ArrayList<>();
+        for (String filename : ORDER_FILES) {
+            TaskRunnable task = new TaskRunnable(filename);
+            workers.add(task);
+            Thread thread = new Thread(task);
+            threads.add(thread);
+            thread.start();
+        }
+        for (Thread thread : threads) thread.join();
+        for (TaskRunnable worker : workers) worker.makeReport();
     }
 }

@@ -10,6 +10,8 @@ public class TypingTest {
 
     private static String lastInput = "";
     private static Scanner scanner = new Scanner(System.in);
+    private static int CorrectCount = 0;
+    private static int AllCount = 0;
     public static class InputRunnable implements Runnable {
 
 
@@ -33,7 +35,7 @@ public class TypingTest {
             Thread inputThread = new Thread(new InputRunnable());
             inputThread.start();
 
-            int waitTime = 10; // seconds
+            int waitTime = 10;
             for (int i = 0; i < waitTime * 10; i++) {
                 if (!lastInput.isEmpty()) {
                     break;
@@ -48,6 +50,7 @@ public class TypingTest {
                 System.out.println("You typed: " + lastInput);
                 if (lastInput.equals(wordToTest)) {
                     System.out.println("Correct");
+                    CorrectCount++;
                 } else {
                     System.out.println("Incorrect");
                 }
@@ -64,10 +67,11 @@ public class TypingTest {
         for (int i = 0; i < inputList.size(); i++) {
             String wordToTest = inputList.get(i);
             testWord(wordToTest);
-            Thread.sleep(2000); // Pause briefly before showing the next word
+            Thread.sleep(2000);
         }
 
-        // TODO: Display a summary of test results
+        System.out.println("Results of your test:");
+        System.out.println("you write "+ CorrectCount + " / " + AllCount + " of words correctly");
     }
     public static List<String> readWordsFromFile(String filename) {
         List<String> words = new ArrayList<>();
@@ -90,8 +94,9 @@ public class TypingTest {
         int wordCount = scanner.nextInt();
         if(wordCount > words.size()){
             System.out.println("max size is " + words.size());
+            wordCount = words.size();
         }
-        wordCount = words.size();
+        AllCount = wordCount;
         typingTest(words.subList(0,wordCount));
         System.out.println("Press enter to exit.");
     }
